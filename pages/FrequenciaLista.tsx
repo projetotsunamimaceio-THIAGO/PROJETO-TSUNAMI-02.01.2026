@@ -32,7 +32,6 @@ const FrequenciaLista: React.FC<FrequenciaListaProps> = ({ title, onBack, studen
   const [batchLoadingDay, setBatchLoadingDay] = useState<string | null>(null);
   const [justifyingCell, setJustifyingCell] = useState<{ studentId: string, isoDate: string, studentName: string } | null>(null);
   const [tempNote, setTempNote] = useState('');
-  const [exportFeedback, setExportFeedback] = useState<string | null>(null);
 
   const attendanceDays = useMemo(() => {
     const dates: { day: string; weekDayName: string; iso: string }[] = [];
@@ -94,7 +93,7 @@ const FrequenciaLista: React.FC<FrequenciaListaProps> = ({ title, onBack, studen
     try { await onSyncBatchAttendance(updates); } finally { setBatchLoadingDay(null); }
   };
 
-  const handleExportDay = (isoDate: string, mode: 'whatsapp' | 'download') => {
+  const handleExportDay = async (isoDate: string, mode: 'share' | 'download') => {
     const presentOnes = filteredStudents.filter(s => {
       const data = getCellData(s.id, isoDate);
       return data?.status === 'P' || data?.status === 'A';
@@ -105,7 +104,6 @@ const FrequenciaLista: React.FC<FrequenciaListaProps> = ({ title, onBack, studen
       return;
     }
 
-    // Agrupamento por Turma
     const grouped: Record<string, string[]> = {};
     presentOnes.forEach(s => {
       const className = classes.find(c => c.id === s.classId)?.name || 'SEM TURMA';
@@ -122,18 +120,25 @@ const FrequenciaLista: React.FC<FrequenciaListaProps> = ({ title, onBack, studen
 
     message += `TOTAL: ${presentOnes.length} PESSOAS.`;
 
-    if (mode === 'whatsapp') {
-      const encoded = encodeURIComponent(message);
-      // Usando api.whatsapp.com em vez de wa.me e window.location.href para mobile
-      const whatsappUrl = `https://api.whatsapp.com/send?text=${encoded}`;
-      
-      // Verifica se é mobile para decidir como abrir
-      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-      if (isMobile) {
-        window.location.href = whatsappUrl;
-      } else {
-        window.open(whatsappUrl, '_blank');
+    if (mode === 'share') {
+      // TENTA USAR O COMPARTILHAMENTO NATIVO DO CELULAR (MAIS ESTÁVEL)
+      if (navigator.share) {
+        try {
+          await navigator.share({
+            title: 'Frequência Tsunami',
+            text: message
+          });
+          return;
+        } catch (err) {
+          console.log("Compartilhamento cancelado ou erro: ", err);
+        }
       }
+      
+      // SE NÃO SUPORTAR SHARE (PC), USA O LINK DA API DO WHATSAPP
+      const encoded = encodeURIComponent(message);
+      const whatsappUrl = `https://api.whatsapp.com/send?text=${encoded}`;
+      window.open(whatsappUrl, '_blank');
+      
     } else if (mode === 'download') {
       const blob = new Blob([message], { type: 'text/plain;charset=utf-8' });
       const url = URL.createObjectURL(blob);
@@ -212,7 +217,6 @@ const FrequenciaLista: React.FC<FrequenciaListaProps> = ({ title, onBack, studen
                         <span className="text-blue-500 font-black text-xl leading-none">{day.day}</span>
                         <span className="text-[7px] font-black text-white/20 uppercase">{day.weekDayName}</span>
                         
-                        {/* AÇÕES DA DATA: MARCAR TODOS E EXPORTAR (WHATSAPP E DOWNLOAD) */}
                         <div className="flex gap-1 mt-1">
                            <button onClick={() => handleMarkAll(day.iso, 'P')} title="Presença Geral" className="w-5 h-5 rounded bg-green-500/10 border border-green-500/20 flex items-center justify-center text-green-500 hover:bg-green-500 hover:text-white transition-all">
                              <div className="scale-[0.3]"><Icons.Check /></div>
@@ -221,10 +225,10 @@ const FrequenciaLista: React.FC<FrequenciaListaProps> = ({ title, onBack, studen
                              <div className="scale-[0.3]"><Icons.X /></div>
                            </button>
 
-                           {/* BOTÃO WHATSAPP */}
-                           <button onClick={() => handleExportDay(day.iso, 'whatsapp')} title="Enviar WhatsApp" className="w-5 h-5 rounded bg-green-600/10 border border-green-600/20 flex items-center justify-center text-green-500 hover:bg-green-600 hover:text-white transition-all">
+                           {/* BOTÃO COMPARTILHAR (WHATSAPP/NATIVO) */}
+                           <button onClick={() => handleExportDay(day.iso, 'share')} title="Compartilhar" className="w-5 h-5 rounded bg-green-600/10 border border-green-600/20 flex items-center justify-center text-green-500 hover:bg-green-600 hover:text-white transition-all">
                              <div className="scale-[0.3]">
-                               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
                              </div>
                            </button>
 
