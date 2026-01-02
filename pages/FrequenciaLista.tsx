@@ -32,6 +32,7 @@ const FrequenciaLista: React.FC<FrequenciaListaProps> = ({ title, onBack, studen
   const [batchLoadingDay, setBatchLoadingDay] = useState<string | null>(null);
   const [justifyingCell, setJustifyingCell] = useState<{ studentId: string, isoDate: string, studentName: string } | null>(null);
   const [tempNote, setTempNote] = useState('');
+  const [exportFeedback, setExportFeedback] = useState<string | null>(null);
 
   const attendanceDays = useMemo(() => {
     const dates: { day: string; weekDayName: string; iso: string }[] = [];
@@ -93,6 +94,28 @@ const FrequenciaLista: React.FC<FrequenciaListaProps> = ({ title, onBack, studen
     try { await onSyncBatchAttendance(updates); } finally { setBatchLoadingDay(null); }
   };
 
+  const handleExportDay = (isoDate: string) => {
+    const presentOnes = filteredStudents
+      .filter(s => {
+        const data = getCellData(s.id, isoDate);
+        return data?.status === 'P' || data?.status === 'A';
+      })
+      .map(s => s.name.toUpperCase());
+
+    if (presentOnes.length === 0) {
+      alert("NENHUMA PRESENÇA REGISTRADA NESTA DATA.");
+      return;
+    }
+
+    const dateFormatted = isoDate.split('-').reverse().join('/');
+    const text = `🌊 TSUNAMI - FREQUÊNCIA\n🗓️ DATA: ${dateFormatted}\n👥 TOTAL: ${presentOnes.length}\n\n${presentOnes.join('\n')}`;
+
+    navigator.clipboard.writeText(text).then(() => {
+      setExportFeedback(isoDate);
+      setTimeout(() => setExportFeedback(null), 2000);
+    });
+  };
+
   const toggleStatus = async (studentId: string, isoDate: string, studentName: string, isLocked: boolean) => {
     if (isLocked || isSaving === `${studentId}-${isoDate}` || !!batchLoadingDay) return;
     const currentData = getCellData(studentId, isoDate);
@@ -134,7 +157,6 @@ const FrequenciaLista: React.FC<FrequenciaListaProps> = ({ title, onBack, studen
         <h2 className="text-sm font-black uppercase text-white tracking-widest opacity-50 italic">{title}</h2>
       </div>
 
-      {/* Filtros compactos */}
       <div className="flex gap-2 w-full px-4 justify-center">
          <select value={selectedMonth} onChange={(e) => setSelectedMonth(parseInt(e.target.value))} className="flex-1 max-w-[140px] bg-[#0a101f] border border-white/10 text-white font-black uppercase text-[10px] py-3 px-4 rounded-xl outline-none appearance-none cursor-pointer">
            {MONTHS.map((m, i) => <option key={m} value={i}>{m}</option>)}
@@ -154,17 +176,21 @@ const FrequenciaLista: React.FC<FrequenciaListaProps> = ({ title, onBack, studen
                   <th className="p-4 text-left text-[9px] font-black uppercase tracking-widest text-white/30 sticky left-0 bg-[#0c1221] z-30 w-44">ATLETA</th>
                   <th className="p-3 text-center text-[9px] font-black uppercase tracking-widest text-white/30 border-l border-white/5">FALTAS</th>
                   {attendanceDays.map(day => (
-                    <th key={day.iso} className="p-2 text-center border-l border-white/5 min-w-[75px]">
+                    <th key={day.iso} className="p-2 text-center border-l border-white/5 min-w-[100px]">
                       <div className="flex flex-col items-center gap-1">
                         <span className="text-blue-500 font-black text-xl leading-none">{day.day}</span>
                         <span className="text-[7px] font-black text-white/20 uppercase">{day.weekDayName}</span>
-                        {/* FUNÇÃO MARCAR TODOS - MANTIDA */}
+                        
+                        {/* AÇÕES DA DATA: MARCAR TODOS E EXPORTAR */}
                         <div className="flex gap-1 mt-1">
-                           <button onClick={() => handleMarkAll(day.iso, 'P')} className="w-5 h-5 rounded bg-green-500/10 border border-green-500/20 flex items-center justify-center text-green-500 hover:bg-green-500 hover:text-white transition-all">
+                           <button onClick={() => handleMarkAll(day.iso, 'P')} title="Presença Geral" className="w-5 h-5 rounded bg-green-500/10 border border-green-500/20 flex items-center justify-center text-green-500 hover:bg-green-500 hover:text-white transition-all">
                              <div className="scale-[0.3]"><Icons.Check /></div>
                            </button>
-                           <button onClick={() => handleMarkAll(day.iso, 'F')} className="w-5 h-5 rounded bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-500 hover:bg-red-500 hover:text-white transition-all">
+                           <button onClick={() => handleMarkAll(day.iso, 'F')} title="Falta Geral" className="w-5 h-5 rounded bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-500 hover:bg-red-500 hover:text-white transition-all">
                              <div className="scale-[0.3]"><Icons.X /></div>
+                           </button>
+                           <button onClick={() => handleExportDay(day.iso)} title="Exportar Lista" className={`w-5 h-5 rounded flex items-center justify-center transition-all ${exportFeedback === day.iso ? 'bg-blue-500 text-white' : 'bg-blue-500/10 border border-blue-500/20 text-blue-400 hover:bg-blue-500 hover:text-white'}`}>
+                             <div className="scale-[0.3]">{exportFeedback === day.iso ? <Icons.Check /> : <Icons.Share />}</div>
                            </button>
                         </div>
                       </div>
@@ -210,7 +236,6 @@ const FrequenciaLista: React.FC<FrequenciaListaProps> = ({ title, onBack, studen
               <tfoot className="border-t border-white/10 bg-white/5">
                 <tr>
                    <td colSpan={2} className="p-4 text-right text-[8px] font-black uppercase text-blue-400 tracking-widest sticky left-0 bg-[#0c1221] z-20">PRESENÇAS NO DIA</td>
-                   {/* NÚMERO DE PRESENÇA EM BAIXO - MANTIDO */}
                    {attendanceDays.map(day => (
                      <td key={day.iso} className="p-3 text-center border-l border-white/5">
                         <span className="text-white font-black text-sm">{getDayAttendanceCount(day.iso)}</span>
