@@ -20,6 +20,8 @@ const MONTHS = [
   "JULHO", "AGOSTO", "SETEMBRO", "OUTUBRO", "NOVEMBRO", "DEZEMBRO"
 ];
 
+const YEARS = [2024, 2025, 2026];
+
 const WEEK_DAYS_SHORT = ["DOM", "SEG", "TER", "QUA", "QUI", "SEX", "SÁB"];
 
 const FrequenciaLista: React.FC<FrequenciaListaProps> = ({ title, onBack, students, attendance, onSyncAttendance, onSyncBatchAttendance, classes }) => {
@@ -121,7 +123,6 @@ const FrequenciaLista: React.FC<FrequenciaListaProps> = ({ title, onBack, studen
     message += `TOTAL: ${presentOnes.length} PESSOAS.`;
 
     if (mode === 'share') {
-      // TENTA USAR O COMPARTILHAMENTO NATIVO DO CELULAR (MAIS ESTÁVEL)
       if (navigator.share) {
         try {
           await navigator.share({
@@ -134,7 +135,6 @@ const FrequenciaLista: React.FC<FrequenciaListaProps> = ({ title, onBack, studen
         }
       }
       
-      // SE NÃO SUPORTAR SHARE (PC), USA O LINK DA API DO WHATSAPP
       const encoded = encodeURIComponent(message);
       const whatsappUrl = `https://api.whatsapp.com/send?text=${encoded}`;
       window.open(whatsappUrl, '_blank');
@@ -193,11 +193,16 @@ const FrequenciaLista: React.FC<FrequenciaListaProps> = ({ title, onBack, studen
         <h2 className="text-sm font-black uppercase text-white tracking-widest opacity-50 italic">{title}</h2>
       </div>
 
-      <div className="flex gap-2 w-full px-4 justify-center">
-         <select value={selectedMonth} onChange={(e) => setSelectedMonth(parseInt(e.target.value))} className="flex-1 max-w-[140px] bg-[#0a101f] border border-white/10 text-white font-black uppercase text-[10px] py-3 px-4 rounded-xl outline-none appearance-none cursor-pointer">
+      <div className="flex flex-wrap gap-2 w-full px-4 justify-center">
+         <select value={selectedMonth} onChange={(e) => setSelectedMonth(parseInt(e.target.value))} className="flex-1 min-w-[100px] bg-[#0a101f] border border-white/10 text-white font-black uppercase text-[10px] py-3 px-4 rounded-xl outline-none appearance-none cursor-pointer">
            {MONTHS.map((m, i) => <option key={m} value={i}>{m}</option>)}
          </select>
-         <select value={selectedClassId} onChange={(e) => setSelectedClassId(e.target.value)} className="flex-1 max-w-[180px] bg-[#0a101f] border border-white/10 text-white font-black uppercase text-[10px] py-3 px-4 rounded-xl outline-none appearance-none cursor-pointer">
+         
+         <select value={selectedYear} onChange={(e) => setSelectedYear(parseInt(e.target.value))} className="flex-none w-[80px] bg-[#0a101f] border border-white/10 text-white font-black uppercase text-[10px] py-3 px-4 rounded-xl outline-none appearance-none cursor-pointer text-center">
+           {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+         </select>
+
+         <select value={selectedClassId} onChange={(e) => setSelectedClassId(e.target.value)} className="flex-1 min-w-[140px] bg-[#0a101f] border border-white/10 text-white font-black uppercase text-[10px] py-3 px-4 rounded-xl outline-none appearance-none cursor-pointer">
            <option value="all">TODAS AS TURMAS</option>
            {classes.map(cls => <option key={cls.id} value={cls.id}>{cls.name}</option>)}
          </select>
@@ -225,14 +230,12 @@ const FrequenciaLista: React.FC<FrequenciaListaProps> = ({ title, onBack, studen
                              <div className="scale-[0.3]"><Icons.X /></div>
                            </button>
 
-                           {/* BOTÃO COMPARTILHAR (WHATSAPP/NATIVO) */}
                            <button onClick={() => handleExportDay(day.iso, 'share')} title="Compartilhar" className="w-5 h-5 rounded bg-green-600/10 border border-green-600/20 flex items-center justify-center text-green-500 hover:bg-green-600 hover:text-white transition-all">
                              <div className="scale-[0.3]">
                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
                              </div>
                            </button>
 
-                           {/* BOTÃO BAIXAR TXT */}
                            <button onClick={() => handleExportDay(day.iso, 'download')} title="Baixar TXT" className="w-5 h-5 rounded bg-white/10 border border-white/20 flex items-center justify-center text-white hover:bg-white hover:text-black transition-all">
                              <div className="scale-[0.3]">
                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
