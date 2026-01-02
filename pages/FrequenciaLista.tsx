@@ -94,26 +94,48 @@ const FrequenciaLista: React.FC<FrequenciaListaProps> = ({ title, onBack, studen
     try { await onSyncBatchAttendance(updates); } finally { setBatchLoadingDay(null); }
   };
 
-  const handleExportDay = (isoDate: string) => {
-    const presentOnes = filteredStudents
-      .filter(s => {
-        const data = getCellData(s.id, isoDate);
-        return data?.status === 'P' || data?.status === 'A';
-      })
-      .map(s => s.name.toUpperCase());
+  const handleExportDay = (isoDate: string, mode: 'whatsapp' | 'download') => {
+    const presentOnes = filteredStudents.filter(s => {
+      const data = getCellData(s.id, isoDate);
+      return data?.status === 'P' || data?.status === 'A';
+    });
 
     if (presentOnes.length === 0) {
       alert("NENHUMA PRESENÇA REGISTRADA NESTA DATA.");
       return;
     }
 
-    const dateFormatted = isoDate.split('-').reverse().join('/');
-    const text = `🌊 TSUNAMI - FREQUÊNCIA\n🗓️ DATA: ${dateFormatted}\n👥 TOTAL: ${presentOnes.length}\n\n${presentOnes.join('\n')}`;
-
-    navigator.clipboard.writeText(text).then(() => {
-      setExportFeedback(isoDate);
-      setTimeout(() => setExportFeedback(null), 2000);
+    // Agrupamento por Turma
+    const grouped: Record<string, string[]> = {};
+    presentOnes.forEach(s => {
+      const className = classes.find(c => c.id === s.classId)?.name || 'SEM TURMA';
+      if (!grouped[className]) grouped[className] = [];
+      grouped[className].push(s.name.toUpperCase());
     });
+
+    const dateFormatted = isoDate.split('-').reverse().join('/');
+    let message = `🌊 TSUNAMI - FREQUÊNCIA (${dateFormatted})\n\n`;
+    
+    Object.entries(grouped).forEach(([turma, nomes]) => {
+      message += `${turma.toUpperCase()}\n${nomes.join('\n')}\n\n`;
+    });
+
+    message += `TOTAL: ${presentOnes.length} PESSOAS.`;
+
+    if (mode === 'whatsapp') {
+      const encoded = encodeURIComponent(message);
+      window.open(`https://wa.me/?text=${encoded}`, '_blank');
+    } else if (mode === 'download') {
+      const blob = new Blob([message], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Frequencia_${dateFormatted.replace(/\//g, '-')}.txt`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }
   };
 
   const toggleStatus = async (studentId: string, isoDate: string, studentName: string, isLocked: boolean) => {
@@ -176,12 +198,12 @@ const FrequenciaLista: React.FC<FrequenciaListaProps> = ({ title, onBack, studen
                   <th className="p-4 text-left text-[9px] font-black uppercase tracking-widest text-white/30 sticky left-0 bg-[#0c1221] z-30 w-44">ATLETA</th>
                   <th className="p-3 text-center text-[9px] font-black uppercase tracking-widest text-white/30 border-l border-white/5">FALTAS</th>
                   {attendanceDays.map(day => (
-                    <th key={day.iso} className="p-2 text-center border-l border-white/5 min-w-[100px]">
+                    <th key={day.iso} className="p-2 text-center border-l border-white/5 min-w-[110px]">
                       <div className="flex flex-col items-center gap-1">
                         <span className="text-blue-500 font-black text-xl leading-none">{day.day}</span>
                         <span className="text-[7px] font-black text-white/20 uppercase">{day.weekDayName}</span>
                         
-                        {/* AÇÕES DA DATA: MARCAR TODOS E EXPORTAR */}
+                        {/* AÇÕES DA DATA: MARCAR TODOS E EXPORTAR (WHATSAPP E DOWNLOAD) */}
                         <div className="flex gap-1 mt-1">
                            <button onClick={() => handleMarkAll(day.iso, 'P')} title="Presença Geral" className="w-5 h-5 rounded bg-green-500/10 border border-green-500/20 flex items-center justify-center text-green-500 hover:bg-green-500 hover:text-white transition-all">
                              <div className="scale-[0.3]"><Icons.Check /></div>
@@ -189,8 +211,19 @@ const FrequenciaLista: React.FC<FrequenciaListaProps> = ({ title, onBack, studen
                            <button onClick={() => handleMarkAll(day.iso, 'F')} title="Falta Geral" className="w-5 h-5 rounded bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-500 hover:bg-red-500 hover:text-white transition-all">
                              <div className="scale-[0.3]"><Icons.X /></div>
                            </button>
-                           <button onClick={() => handleExportDay(day.iso)} title="Exportar Lista" className={`w-5 h-5 rounded flex items-center justify-center transition-all ${exportFeedback === day.iso ? 'bg-blue-500 text-white' : 'bg-blue-500/10 border border-blue-500/20 text-blue-400 hover:bg-blue-500 hover:text-white'}`}>
-                             <div className="scale-[0.3]">{exportFeedback === day.iso ? <Icons.Check /> : <Icons.Share />}</div>
+
+                           {/* BOTÃO WHATSAPP */}
+                           <button onClick={() => handleExportDay(day.iso, 'whatsapp')} title="Enviar WhatsApp" className="w-5 h-5 rounded bg-green-600/10 border border-green-600/20 flex items-center justify-center text-green-500 hover:bg-green-600 hover:text-white transition-all">
+                             <div className="scale-[0.3]">
+                               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                             </div>
+                           </button>
+
+                           {/* BOTÃO BAIXAR TXT */}
+                           <button onClick={() => handleExportDay(day.iso, 'download')} title="Baixar TXT" className="w-5 h-5 rounded bg-white/10 border border-white/20 flex items-center justify-center text-white hover:bg-white hover:text-black transition-all">
+                             <div className="scale-[0.3]">
+                               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                             </div>
                            </button>
                         </div>
                       </div>
