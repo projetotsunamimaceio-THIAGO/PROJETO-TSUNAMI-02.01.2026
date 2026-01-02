@@ -124,7 +124,16 @@ const FrequenciaLista: React.FC<FrequenciaListaProps> = ({ title, onBack, studen
 
     if (mode === 'whatsapp') {
       const encoded = encodeURIComponent(message);
-      window.open(`https://wa.me/?text=${encoded}`, '_blank');
+      // Usando api.whatsapp.com em vez de wa.me e window.location.href para mobile
+      const whatsappUrl = `https://api.whatsapp.com/send?text=${encoded}`;
+      
+      // Verifica se é mobile para decidir como abrir
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      if (isMobile) {
+        window.location.href = whatsappUrl;
+      } else {
+        window.open(whatsappUrl, '_blank');
+      }
     } else if (mode === 'download') {
       const blob = new Blob([message], { type: 'text/plain;charset=utf-8' });
       const url = URL.createObjectURL(blob);
